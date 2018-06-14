@@ -1,0 +1,93 @@
+﻿%{
+open Ast
+%}
+
+%start start
+%token TYPE VAR FUNCTION INT STRING ARRAY OF NIL LET IN END IF THEN ELSE WHILE DO FOR TO BREAK
+%token PLUS MINUS TIMES DIV ASSIGN EQ NEQ GTEQ LTEQ GT LT AND OR
+%token LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET DOT COMMA COLON SEMI
+%token <string> ID
+%token <string> STRING_LIT
+%token <System.Int32> INT_LIT
+%token EOF
+%type < Ast.Expr > start
+
+
+%%
+
+
+start: Expr EOF { $1 }
+
+ArithmeticOp: PLUS { PlusOp }
+            | MINUS { MinusOp }
+            | TIMES { TimesOp }
+            | DIV { DivOp }
+            
+ComparisonOp: EQ { EqualsOp }
+            | NEQ { NotEqualsOp }
+            | GT { GreaterThanOp }
+            | LT { LessThanOp }
+            | GTEQ { GreaterThanOrEqualsOp }
+            | LTEQ { LessThanOrEqualsOp }
+
+LogicOp: AND { AndOp }
+       | OR { OrOp }
+
+TypeDef: ID { TypeAliasDef($1) }
+       | LBRACE TypeFields RBRACE { RecordTypeDef(List.rev($2)) }
+       | ARRAY OF ID { ArrayTypeDef($3) }
+
+TypeFields : ID COLON ID { [($1, $3)] }
+           | TypeFields COMMA ID COLON ID { ($3, $5) :: $1 }
+
+LValue: ID { LId($1) }
+      | LValue DOT ID { LProperty($1, $3) }
+      | LValue LBRACKET Expr RBRACKET { LArrayElem($1, $3) }
+
+Expr: NIL { NilExpr }
+    | LPAREN RPAREN { UnitExpr }
+    | LPAREN Expr RPAREN { $2 }
+    | LValue { EvalExpr($1) }
+    | ExprSeq { ExprSeqExpr(List.rev($1)) }
+    | INT_LIT { IntLiteralExpr($1) }
+    | STRING_LIT { StringLiteralExpr($1) }
+    | ID LPAREN ExprList RPAREN { FunctionCallExpr($1, List.rev($3)) }
+    | MINUS Expr { NegationExpr($2) }
+    | Expr ArithmeticOp Expr { ArithmeticExpr($1, $2, $3) }
+    | Expr ComparisonOp Expr { ComparisonExpr($1, $2, $3) }
+    | Expr LogicOp Expr { LogicExpr($1, $2, $3) }
+    | ID LBRACE FieldAssgmtList RBRACE { RecordCreationExpr($1, List.rev($3)) }
+    | ID LBRACKET Expr RBRACKET OF Expr { ArrayCreationExpr($1, $3, $6) }
+    | LValue ASSIGN Expr { AssignmentExpr($1, $3) }
+    | IF Expr THEN Expr { IfThenExpr($2, $4) }
+    | IF Expr THEN Expr ELSE Expr { IfThenElseExpr($2, $4, $6) }
+    | WHILE Expr DO Expr { WhileDoExpr($2, $4) }
+    | FOR ID ASSIGN Expr TO Expr DO Expr { ForDoExpr($2, $4, $6, $8) }
+    | BREAK { BreakExpr }
+    | LET DecList IN Expr END { LetInExpr(List.rev($2), $4) }
+
+ExprSeq: Expr { [$1] }
+       | ExprSeq SEMI Expr { $3 :: $1 }
+
+ExprList: Expr { [$1] }
+        | ExprList COMMA Expr { $3 :: $1 }
+        
+FieldAssgmtList: ID EQ Expr { [($1, $3)] }
+               | FieldAssgmtList COMMA ID EQ Expr { ($3, $5) :: $1 }
+
+Dec: TypeDec { TDec($1) }
+   | VarDec { VDec($1) }
+   | FunDec { FDec($1) }
+   
+DecList: Dec { [$1] }
+       | DecList Dec { $2 :: $1 }
+   
+TypeDec: TYPE ID EQ TypeDef { TypeDec($2, $4) }
+
+VarDec: VAR ID ASSIGN Expr { VarDec($2, $4) }
+      | VAR ID COLON ID ASSIGN Expr { VarDecWithType($2, $4, $6) }
+
+FunDec: FUNCTION ID LPAREN TypeFields RPAREN EQ Expr { FunDec($2, List.rev($4), $7) }
+      | FUNCTION ID LPAREN TypeFields RPAREN COLON ID EQ Expr { FunDecWithType($2, List.rev($4), $7, $9) }
+      
+      

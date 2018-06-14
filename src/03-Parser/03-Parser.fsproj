@@ -1,0 +1,56 @@
+﻿<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{F50B405E-6F0B-47E6-90F5-1FADA85D8B31}</ProjectGuid>
+    <TargetProfile>netcore</TargetProfile>
+    <TargetFSharpCoreVersion>3.78.3.1</TargetFSharpCoreVersion>
+    <UseStandardResourceNames>true</UseStandardResourceNames>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Parser</RootNamespace>
+    <AssemblyName>03-Parser</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkIdentifier>.NETPortable</TargetFrameworkIdentifier>
+    <TargetFrameworkProfile>Profile78</TargetFrameworkProfile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget></PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <DefineConstants></DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <GenerateTailCalls>true</GenerateTailCalls>
+    <PlatformTarget></PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="FSharp.Core">
+      <HintPath>..\..\packages\FSharp.Core.4.0.0.1\lib\portable-net45+netcore45+wp8\FSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="FsLexYacc.Runtime">
+      <HintPath>..\..\packages\FsLexYacc.Runtime.7.0.6\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10\FsLexYacc.Runtime.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <Compile Include="Ast.fs" />
+    <FsYacc Include="Parser.fsy">
+      <OtherFlags>--module Parser</OtherFlags>
+    </FsYacc>
+    <Compile Include="Parser.fsi" />
+    <Compile Include="Parser.fs" />
+    <FsLex Include="Lexer.fsl">
+      <OtherFlags>--unicode</OtherFlags>
+    </FsLex>
+    <Compile Include="Lexer.fs" />
+    <None Include="Demo.fsx" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.Portable.FSharp.Targets" />
+  <Import Project="..\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets" Condition="Exists('..\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets')" />
+</Project>
