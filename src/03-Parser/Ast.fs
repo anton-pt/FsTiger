@@ -45,8 +45,7 @@ and Expr =
     | RecordCreationExpr of TypeId * (Id * Expr) list
     | ArrayCreationExpr of TypeId * Expr * Expr
     | AssignmentExpr of LValue * Expr
-    | IfThenExpr of Expr * Expr
-    | IfThenElseExpr of Expr * Expr * Expr
+    | IfThenExpr of Expr * Expr * Expr option
     | WhileDoExpr of Expr * Expr
     | ForDoExpr of Id * Expr * Expr * Expr
     | BreakExpr

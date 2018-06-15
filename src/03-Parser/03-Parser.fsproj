@@ -50,6 +50,7 @@
     </FsLex>
     <Compile Include="Lexer.fs" />
     <None Include="Demo.fsx" />
+    <None Include="Parser-bup.fsy" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.Portable.FSharp.Targets" />
   <Import Project="..\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets" Condition="Exists('..\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets')" />

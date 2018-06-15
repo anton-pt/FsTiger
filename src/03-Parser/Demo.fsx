@@ -4,7 +4,13 @@
 open Parser
 open Microsoft.FSharp.Text.Lexing
 
-let prog = """(a := 5; a)"""
+let prog = """
+let
+ var z := (5 + 6) * 4
+ type test = { a : int }
+ function f(x : int) = test { a = x }
+ in f(z)
+end"""
 
 let buf = LexBuffer<_>.FromString prog
 let ast = start Lexer.token buf
