@@ -19,6 +19,10 @@ open Ast
 %left PLUS MINUS
 %left TIMES DIV
 
+%nonassoc THEN
+%nonassoc ELSE
+%nonassoc DO
+
 %%
 
 start: Expr EOF { $1 }
@@ -39,8 +43,11 @@ LogicOp: AND { AndOp }
        | OR { OrOp }
 
 LValue: ID { LId($1) }
-      | LValue DOT ID { LProperty($1, $3) }
-      | LValue LBRACKET Expr RBRACKET { LArrayElem($1, $3) }
+      | LValueNotId { $1 }
+
+LValueNotId : LValue DOT ID { LProperty($1, $3) }
+            | ID LBRACKET Expr RBRACKET { LArrayElem(LId($1), $3) }
+            | LValueNotId LBRACKET Expr RBRACKET { LArrayElem($1, $3) }
       
 TypeId: ID { $1 }
       | INT { "int" }
@@ -60,9 +67,9 @@ Expr: NIL { NilExpr }
     | Expr LogicOp Expr %prec OR { LogicExpr($1, $2, $3) }
     | LValue ASSIGN Expr { AssignmentExpr($1, $3) }
     | ID LBRACE FieldAssgmtList RBRACE { RecordCreationExpr($1, List.rev($3)) }
-    | ID LBRACKET Expr RBRACKET OF Expr { ArrayCreationExpr($1, $3, $6) }
-    | IF Expr THEN Expr { IfThenExpr($2, $4, None) }
+    | ID LBRACKET Expr RBRACKET OF Expr %prec ASSIGN { ArrayCreationExpr($1, $3, $6) }
     | IF Expr THEN Expr ELSE Expr { IfThenExpr($2, $4, Some $6) }
+    | IF Expr THEN Expr { IfThenExpr($2, $4, None) }
     | WHILE Expr DO Expr { WhileDoExpr($2, $4) }
     | FOR ID ASSIGN Expr TO Expr DO Expr { ForDoExpr($2, $4, $6, $8) }
     | BREAK { BreakExpr }

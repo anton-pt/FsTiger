@@ -103,6 +103,7 @@ type nonTerminalId =
     | NONTERM_ComparisonOp
     | NONTERM_LogicOp
     | NONTERM_LValue
+    | NONTERM_LValueNotId
     | NONTERM_TypeId
     | NONTERM_Expr
     | NONTERM_ExprSeq
