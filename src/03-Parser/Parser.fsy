@@ -3,6 +3,7 @@ open Ast
 %}
 
 %start start
+%token LOWPREC
 %token TYPE VAR FUNCTION INT STRING ARRAY OF NIL LET IN END IF THEN ELSE WHILE DO FOR TO BREAK
 %token LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET DOT COMMA COLON SEMI
 %token PLUS MINUS TIMES DIV ASSIGN EQ NEQ GTEQ LTEQ GT LT AND OR
@@ -22,6 +23,8 @@ open Ast
 %nonassoc THEN
 %nonassoc ELSE
 %nonassoc DO
+
+%nonassoc LPAREN RPAREN
 
 %%
 
@@ -66,7 +69,8 @@ Expr: NIL { NilExpr }
     | Expr ComparisonOp Expr %prec PLUS { ComparisonExpr($1, $2, $3) }
     | Expr LogicOp Expr %prec OR { LogicExpr($1, $2, $3) }
     | LValue ASSIGN Expr { AssignmentExpr($1, $3) }
-    | ID LBRACE FieldAssgmtList RBRACE { RecordCreationExpr($1, List.rev($3)) }
+    | ID NIL { RecordCreationExpr($1, None) }
+    | ID LBRACE FieldAssgmtList RBRACE { RecordCreationExpr($1, Some (List.rev($3))) }
     | ID LBRACKET Expr RBRACKET OF Expr %prec ASSIGN { ArrayCreationExpr($1, $3, $6) }
     | IF Expr THEN Expr ELSE Expr { IfThenExpr($2, $4, Some $6) }
     | IF Expr THEN Expr { IfThenExpr($2, $4, None) }
@@ -75,8 +79,8 @@ Expr: NIL { NilExpr }
     | BREAK { BreakExpr }
     | LET DecList IN Expr END { LetInExpr(List.rev($2), $4) }
     
-ExprSeq: Expr SEMI Expr { [$1 ; $3] }
-       | Expr SEMI ExprSeq { $1 :: $3 }
+ExprSeq: Expr SEMI Expr { [$3 ; $1] }
+       | ExprSeq SEMI Expr { $3 :: $1 }
 
 ExprList: { [] }
         | Expr { [$1] }
@@ -93,7 +97,7 @@ Dec: TypeDec { TDec($1) }
 DecList: Dec { [$1] }
        | DecList Dec { $2 :: $1 }
    
-TypeDef: ID { TypeAliasDef($1) }
+TypeDef: TypeId { TypeAliasDef($1) }
        | LBRACE TypeFields RBRACE { RecordTypeDef(List.rev($2)) }
        | ARRAY OF TypeId { ArrayTypeDef($3) }
 

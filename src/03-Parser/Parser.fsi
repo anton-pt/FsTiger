@@ -47,6 +47,7 @@ type token =
   | FOR
   | TO
   | BREAK
+  | LOWPREC
 type tokenId = 
     | TOKEN_EOF
     | TOKEN_INT_LIT
@@ -94,6 +95,7 @@ type tokenId =
     | TOKEN_FOR
     | TOKEN_TO
     | TOKEN_BREAK
+    | TOKEN_LOWPREC
     | TOKEN_end_of_input
     | TOKEN_error
 type nonTerminalId = 

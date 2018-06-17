@@ -50,7 +50,7 @@ rule token = parse
 | "break"        { BREAK }
 | ident          { ID (lexeme lexbuf) }
 | "\""           { strLitToken (StringBuilder()) lexbuf }
-| ['-']?digit+   { INT_LIT (Int32.Parse(lexeme lexbuf)) }
+| digit+         { INT_LIT (Int32.Parse(lexeme lexbuf)) }
 | '*'            { TIMES }
 | '/'            { DIV }
 | '+'            { PLUS }

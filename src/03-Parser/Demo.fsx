@@ -1,64 +1,16 @@
 ﻿#r "../../packages/FsLexYacc.Runtime.7.0.6/lib/portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10/FsLexYacc.Runtime.dll"
 #r "bin/Debug/03-Parser.dll"
 
+open System.IO
 open Parser
 open Microsoft.FSharp.Text.Lexing
 
-let prog = """let 
-
- type any = {any : int}
- var buffer := getchar()
-
-function readint(any: any) : int =
- let var i := 0
-     function isdigit(s : string) : int = 
-          ord(buffer)>=ord("0") & ord(buffer)<=ord("9")
-     function skipto() =
-       while buffer=" " | buffer="\n"
-         do buffer := getchar()
-  in (skipto();
-     any.any := isdigit(buffer);
-     while isdigit(buffer)
-       do (i := i*10+ord(buffer)-ord("0"); buffer := getchar());
-     i)
- end
-
- type list = {first: int, rest: list}
-
- function readlist() : list =
-    let var any := any{any=0}
-        var i := readint(any)
-     in if any.any
-         then list{first=i,rest=readlist()}
-         else nil
-    end
-
- function merge(a: list, b: list) : list =
-   if a=nil then b
-   else if b=nil then a
-   else if a.first < b.first 
-      then list{first=a.first,rest=merge(a.rest,b)}
-      else list{first=b.first,rest=merge(a,b.rest)}
-
- function printint(i: int) =
-  let function f(i:int) = if i>0 
-         then (f(i/10); print(chr(i-i/10*10+ord("0"))))
-   in if i<0 then (print("-"); f(-i))
-      else if i>0 then f(i)
-      else print("0")
-  end
-
- function printlist(l: list) =
-   if l=nil then print("\n")
-   else (printint(l.first); print(" "); printlist(l.rest))
-
-   var list1 := readlist()
-   var list2 := (buffer:=getchar(); readlist())
-
-
-  /* BODY OF MAIN PROGRAM */
- in printlist(merge(list1,list2))
-end"""
-
-let buf = LexBuffer<_>.FromString prog
-let ast = start Lexer.token buf
+Directory.GetFiles "../../testcases/"
+|> Seq.filter (fun path -> Path.GetExtension path = ".tig")
+|> Seq.iter (fun path ->
+    printfn "PARSING: %s" path
+    use sr = File.OpenText path 
+    let buf = LexBuffer<_>.FromTextReader sr
+    let ast = start Lexer.token buf
+    printfn "%A" ast
+    printfn "\n\n\n\n")

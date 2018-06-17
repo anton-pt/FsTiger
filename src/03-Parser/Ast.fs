@@ -42,7 +42,7 @@ and Expr =
     | ArithmeticExpr of Expr * ArithmeticOp * Expr
     | ComparisonExpr of Expr * ComparisonOp * Expr
     | LogicExpr of Expr * LogicOp * Expr
-    | RecordCreationExpr of TypeId * (Id * Expr) list
+    | RecordCreationExpr of TypeId * ((Id * Expr) list) option
     | ArrayCreationExpr of TypeId * Expr * Expr
     | AssignmentExpr of LValue * Expr
     | IfThenExpr of Expr * Expr * Expr option
