@@ -7,6 +7,8 @@ Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "02-Lexer", "src\02-Lexer\02
 EndProject
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "03-Parser", "src\03-Parser\03-Parser.fsproj", "{F50B405E-6F0B-47E6-90F5-1FADA85D8B31}"
 EndProject
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "04-Ast", "src\04-Ast\04-Ast.fsproj", "{3CF7DEE1-7407-4290-97E5-2029E1157090}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,14 @@ Global
 		{F50B405E-6F0B-47E6-90F5-1FADA85D8B31}.Debug|x86.Build.0 = Debug|Any CPU
 		{F50B405E-6F0B-47E6-90F5-1FADA85D8B31}.Release|x86.ActiveCfg = Release|Any CPU
 		{F50B405E-6F0B-47E6-90F5-1FADA85D8B31}.Release|x86.Build.0 = Release|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Debug|x86.Build.0 = Debug|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Release|x86.ActiveCfg = Release|Any CPU
+		{3CF7DEE1-7407-4290-97E5-2029E1157090}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection

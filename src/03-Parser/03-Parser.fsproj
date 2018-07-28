@@ -30,11 +30,11 @@
     <PlatformTarget></PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core">
-      <HintPath>..\..\packages\FSharp.Core.4.0.0.1\lib\portable-net45+netcore45+wp8\FSharp.Core.dll</HintPath>
-    </Reference>
     <Reference Include="FsLexYacc.Runtime">
       <HintPath>..\..\packages\FsLexYacc.Runtime.7.0.6\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10\FsLexYacc.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="FSharp.Core">
+      <HintPath>..\..\packages\FSharp.Core.4.0.0.1\lib\portable-net45+netcore45+wp8\FSharp.Core.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -50,7 +50,6 @@
     </FsLex>
     <Compile Include="Lexer.fs" />
     <None Include="Demo.fsx" />
-    <None Include="Parser-bup.fsy" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.Portable.FSharp.Targets" />
   <Import Project="..\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets" Condition="Exists('..\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets')" />

@@ -2,13 +2,13 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{EE9C7FE5-1FD3-4C72-9EBF-09BED93E20A6}</ProjectGuid>
+    <ProjectGuid>{3CF7DEE1-7407-4290-97E5-2029E1157090}</ProjectGuid>
     <TargetProfile>netcore</TargetProfile>
     <TargetFSharpCoreVersion>3.78.3.1</TargetFSharpCoreVersion>
     <UseStandardResourceNames>true</UseStandardResourceNames>
     <OutputType>Library</OutputType>
-    <RootNamespace>Lexer</RootNamespace>
-    <AssemblyName>2-Lexer</AssemblyName>
+    <RootNamespace>Ast</RootNamespace>
+    <AssemblyName>04-Ast</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFrameworkIdentifier>.NETPortable</TargetFrameworkIdentifier>
     <TargetFrameworkProfile>Profile78</TargetFrameworkProfile>
@@ -30,20 +30,25 @@
     <PlatformTarget></PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="FsLexYacc.Runtime">
-      <HintPath>..\..\packages\FsLexYacc.Runtime.7.0.6\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10\FsLexYacc.Runtime.dll</HintPath>
-    </Reference>
     <Reference Include="FSharp.Core">
       <HintPath>..\..\packages\FSharp.Core.4.0.0.1\lib\portable-net45+netcore45+wp8\FSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="FsLexYacc.Runtime">
+      <HintPath>..\..\packages\FsLexYacc.Runtime.7.0.6\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10\FsLexYacc.Runtime.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <Compile Include="Token.fs" />
-    <Compile Include="Lexer.fs" />
+    <Compile Include="Ast.fs" />
+    <FsYacc Include="Parser.fsy">
+      <OtherFlags>--module Parser</OtherFlags>
+    </FsYacc>
+    <Compile Include="Parser.fsi" />
+    <Compile Include="Parser.fs" />
     <FsLex Include="Lexer.fsl">
       <OtherFlags>--unicode</OtherFlags>
     </FsLex>
+    <Compile Include="Lexer.fs" />
     <None Include="Demo.fsx" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.Portable.FSharp.Targets" />
