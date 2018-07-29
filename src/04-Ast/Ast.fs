@@ -13,7 +13,6 @@ and Exp =
     | NilExp
     | IntExp of int
     | StringExp of string * Position
-    | UnitExp
     | CallExp of func: Symbol * args: Exp list * pos: Position
     | OpExp of left: Exp * oper: Oper * right: Exp * pos: Position
     | RecordExp of fields: (Symbol * Exp * Position) list * typ: Symbol * pos: Position
@@ -51,5 +50,3 @@ and Ty =
 and Oper =
     | PlusOp | MinusOp | TimesOp | DivideOp
     | EqOp | NeqOp | LtOp | LeOp | GtOp | GeOp
-    | AndOp | OrOp
-
