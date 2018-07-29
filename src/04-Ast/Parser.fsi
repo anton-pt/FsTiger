@@ -114,6 +114,7 @@ type nonTerminalId =
     | NONTERM_FunDec
     | NONTERM_FunDecs
     | NONTERM_VarDec
+    | NONTERM_TypeDec
     | NONTERM_TypeDecs
     | NONTERM_Ty
     | NONTERM_TypeFields

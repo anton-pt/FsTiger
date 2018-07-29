@@ -103,9 +103,11 @@ FunDecs: FunDec { [$1] }
 VarDec: VAR ID ASSIGN Exp { VarDec(Symbol $2, ref true, None, $4, parseState.InputStartPosition 1) }
       | VAR ID COLON TypeId ASSIGN Exp { VarDec(Symbol $2, ref true, Some ($4, parseState.InputStartPosition 4), $6, parseState.InputStartPosition 1) }
      
-TypeDecs: TYPE ID EQ Ty { [{ TypeName = Symbol $2 ; Ty = $4 ; Pos = parseState.InputStartPosition 1 }] }
-        | TypeDecs TYPE ID EQ Ty { { TypeName = Symbol $3 ; Ty = $5 ; Pos = parseState.InputStartPosition 2 } :: $1 }
+TypeDec: TYPE ID EQ Ty { { TypeName = Symbol $2 ; Ty = $4 ; Pos = parseState.InputStartPosition 1 } }
 
+TypeDecs: TypeDec { [$1] }
+        | TypeDecs TypeDec { $2 :: $1 }
+        
 Ty: TypeId { NameTy($1, parseState.InputStartPosition 1) }
   | LBRACE TypeFields RBRACE { RecordTy(List.rev($2)) }
   | ARRAY OF TypeId { ArrayTy($3, parseState.InputStartPosition 1) }
