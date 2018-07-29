@@ -1,0 +1,91 @@
+﻿{
+
+module Lexer
+
+// Opens methods related to fslex.exe
+open Microsoft.FSharp.Text.Lexing
+
+open Parser
+open System
+open System.Text
+
+let newline (lexbuf: LexBuffer<_>) = 
+  lexbuf.StartPos <- lexbuf.StartPos.NextLine
+
+let lexeme = LexBuffer<_>.LexemeString
+
+}
+
+// Regular expressions
+let digit = ['0'-'9']
+let whitespace = [' ' '\t' ]
+let newline = ('\n' | '\r' '\n')
+let ident = ['a'-'z' 'A'-'Z'] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
+let strFmt = '\\' [' ' '\t' '\r' '\n']+ '\\'
+let strChar = [ ^ '\n' '\t' '\r' '\"' ]
+let asciiChar = '\\'(digit)(digit)(digit)
+
+rule token = parse
+| whitespace     { token lexbuf }
+| newline        { newline lexbuf; token lexbuf }
+| "/*"           { comment 0 lexbuf }
+| "type"         { TYPE }
+| "var"          { VAR }
+| "function"     { FUNCTION }
+| "int"          { INT }
+| "string"       { STRING }
+| "array"        { ARRAY }
+| "of"           { OF }
+| "nil"          { NIL }
+| "let"          { LET }
+| "in"           { IN }
+| "end"          { END }
+| "if"           { IF }
+| "then"         { THEN }
+| "else"         { ELSE }
+| "while"        { WHILE }
+| "do"           { DO }
+| "for"          { FOR }
+| "to"           { TO }
+| "break"        { BREAK }
+| ident          { ID (lexeme lexbuf) }
+| "\""           { strLitToken (StringBuilder()) lexbuf }
+| digit+         { INT_LIT (Int32.Parse(lexeme lexbuf)) }
+| '*'            { TIMES }
+| '/'            { DIV }
+| '+'            { PLUS }
+| '-'            { MINUS }
+| ":="           { ASSIGN }
+| '='            { EQ }
+| "<>"           { NEQ }
+| ">="           { GTEQ }
+| "<="           { LTEQ }
+| '>'            { GT }
+| '<'            { LT }
+| '&'            { AND }
+| '|'            { OR }
+| '('            { LPAREN }
+| ')'            { RPAREN }
+| '{'            { LBRACE }
+| '}'            { RBRACE }
+| '['            { LBRACKET }
+| ']'            { RBRACKET }
+| '.'            { DOT }
+| ','            { COMMA }
+| ':'            { COLON }
+| ';'            { SEMI }
+| eof            { EOF }
+and strLitToken sb = parse
+| strFmt         { strLitToken sb lexbuf }
+| "\\n"          { strLitToken (sb.Append('\n')) lexbuf }
+| "\\t"          { strLitToken (sb.Append('\t')) lexbuf }
+| asciiChar      { strLitToken (sb.Append(Convert.ToChar(Int32.Parse((lexeme lexbuf).Substring(1))))) lexbuf }
+| "\\\""         { strLitToken (sb.Append('\"')) lexbuf }
+| "\\\\"         { strLitToken (sb.Append('\\')) lexbuf }
+| '\\'           { failwith "unexpected character" }
+| strChar+       { strLitToken (sb.Append(lexeme lexbuf)) lexbuf }
+| '\"'           { STRING_LIT (sb.ToString()) }
+and comment depth = parse
+| "/*"           { comment (depth + 1) lexbuf }
+| "*/"           { if (depth = 0) then token lexbuf else comment (depth - 1) lexbuf }
+| _              { comment depth lexbuf }

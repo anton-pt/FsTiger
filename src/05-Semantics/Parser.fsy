@@ -1,0 +1,118 @@
+﻿%{
+open Ast
+open Symbol
+open Microsoft.FSharp.Text.Lexing
+%}
+
+%start start
+%token LOWPREC
+%token TYPE VAR FUNCTION INT STRING ARRAY OF NIL LET IN END IF THEN ELSE WHILE DO FOR TO BREAK
+%token LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET DOT COMMA COLON SEMI
+%token PLUS MINUS TIMES DIV ASSIGN EQ NEQ GTEQ LTEQ GT LT AND OR
+%token <string> ID
+%token <string> STRING_LIT
+%token <System.Int32> INT_LIT
+%token EOF
+%type < Ast.Exp > start
+
+%left ASSIGN
+%left OR
+%left AND
+%nonassoc EQ NEQ GTEQ LTEQ GT LT
+%left PLUS MINUS
+%left TIMES DIV
+
+%nonassoc THEN
+%nonassoc ELSE
+%nonassoc DO
+
+%nonassoc LPAREN RPAREN
+
+%%
+
+start: Exp EOF { $1 }
+
+Oper: PLUS { PlusOp }
+    | MINUS { MinusOp }
+    | TIMES { TimesOp }
+    | DIV { DivideOp }
+    | EQ { EqOp }
+    | NEQ { NeqOp }
+    | LT { LtOp }
+    | LTEQ { LeOp }
+    | GT { GtOp }
+    | GTEQ { GeOp }
+    
+TypeId: ID { symbol $1 }
+      | INT { symbol "int" }
+      | STRING { symbol "string" }
+    
+Var: ID { SimpleVar(symbol $1, parseState.InputStartPosition 1) }
+   | ComplexVar { $1 }
+
+ComplexVar : Var DOT ID { FieldVar($1, symbol $3, parseState.InputStartPosition 2) }
+           | ID LBRACKET Exp RBRACKET { SubscriptVar(SimpleVar(symbol $1, parseState.InputStartPosition 1), $3, parseState.InputStartPosition 2) }
+           | ComplexVar LBRACKET Exp RBRACKET { SubscriptVar($1, $3, parseState.InputStartPosition 2) }
+
+Exp: Var { VarExp($1) }
+   | NIL { NilExp }
+   | LPAREN Exp RPAREN { $2 }
+   | INT_LIT { IntExp($1) }
+   | STRING_LIT { StringExp($1, parseState.InputStartPosition 1) }
+   | ID LPAREN ExpList RPAREN { CallExp(symbol $1, List.rev($3), parseState.InputStartPosition 1) }
+   | Exp Oper Exp %prec PLUS { OpExp($1, $2, $3, parseState.InputStartPosition 2) }
+   | Exp AND Exp %prec PLUS { IfExp($1, $3, Some (IntExp(0)), parseState.InputStartPosition 2) }
+   | Exp OR Exp %prec PLUS { IfExp($1, IntExp(1), Some $3, parseState.InputStartPosition 2) }
+   | MINUS Exp %prec TIMES { OpExp(IntExp(0), MinusOp, $2, parseState.InputStartPosition 1) }
+   | ID LBRACE RecordFieldList RBRACE { RecordExp(List.rev($3), symbol $1, parseState.InputStartPosition 1) }
+   | ID NIL { RecordExp([], symbol $1, parseState.InputStartPosition 1) }
+   | LPAREN SeqExp RPAREN { SeqExp(List.rev($2)) }
+   | Var ASSIGN Exp { AssignExp($1, $3, parseState.InputStartPosition 2) }
+   | IF Exp THEN Exp ELSE Exp { IfExp($2, $4, Some $6, parseState.InputStartPosition 1) }
+   | IF Exp THEN Exp { IfExp($2, $4, None, parseState.InputStartPosition 1) }
+   | WHILE Exp DO Exp { WhileExp($2, $4, parseState.InputStartPosition 1) }
+   | FOR ID ASSIGN Exp TO Exp DO Exp { ForExp(symbol $2, ref true, $4, $6, $8, parseState.InputStartPosition 1) }
+   | BREAK { BreakExp(parseState.InputStartPosition 1) }
+   | LET DecList IN Exp END { LetExp(List.rev($2), $4, parseState.InputStartPosition 1) }
+   | ID LBRACKET Exp RBRACKET OF Exp %prec ASSIGN { ArrayExp(symbol $1, $3, $6, parseState.InputStartPosition 1) }
+    
+SeqExp: { [] }
+      | Exp SEMI Exp { [($3, parseState.InputStartPosition 3) ; ($1, parseState.InputStartPosition 1)] }
+      | SeqExp SEMI Exp { ($3, parseState.InputStartPosition 3) :: $1 }
+
+ExpList: { [] }
+       | Exp { [$1] }
+       | ExpList COMMA Exp { $3 :: $1 }
+        
+RecordFieldList: { [] }
+               | ID EQ Exp { [(symbol $1, $3, parseState.InputStartPosition 2)] }
+               | RecordFieldList COMMA ID EQ Exp { (symbol $3, $5, parseState.InputStartPosition 4) :: $1 }
+
+Dec: FunDecs { FunDec(List.rev($1)) }
+   | VarDec { $1 }
+   | TypeDecs { TypeDec(List.rev($1)) }
+   
+DecList: Dec { [$1] }
+       | DecList Dec { $2 :: $1 }
+
+FunDec: FUNCTION ID LPAREN TypeFields RPAREN EQ Exp { { FunName = symbol $2 ; Params = List.rev($4) ; Result = None ; Body = $7 ; Pos = parseState.InputStartPosition 1 } }
+      | FUNCTION ID LPAREN TypeFields RPAREN COLON TypeId EQ Exp { { FunName = symbol $2 ; Params = List.rev($4) ; Result = Some ($7, parseState.InputStartPosition 7) ; Body = $9 ; Pos = parseState.InputStartPosition 1 } }
+       
+FunDecs: FunDec { [$1] }
+       | FunDecs FunDec { $2 :: $1 }
+  
+VarDec: VAR ID ASSIGN Exp { VarDec(symbol $2, ref true, None, $4, parseState.InputStartPosition 1) }
+      | VAR ID COLON TypeId ASSIGN Exp { VarDec(symbol $2, ref true, Some ($4, parseState.InputStartPosition 4), $6, parseState.InputStartPosition 1) }
+     
+TypeDec: TYPE ID EQ Ty { { TypeName = symbol $2 ; Ty = $4 ; Pos = parseState.InputStartPosition 1 } }
+
+TypeDecs: TypeDec { [$1] }
+        | TypeDecs TypeDec { $2 :: $1 }
+        
+Ty: TypeId { NameTy($1, parseState.InputStartPosition 1) }
+  | LBRACE TypeFields RBRACE { RecordTy(List.rev($2)) }
+  | ARRAY OF TypeId { ArrayTy($3, parseState.InputStartPosition 1) }
+
+TypeFields : { [] }
+           | ID COLON TypeId { [{ FieldName = symbol $1 ; Escape = ref true ; Typ = $3 ; Pos = parseState.InputStartPosition 2 }] }
+           | TypeFields COMMA ID COLON TypeId { { FieldName = symbol $3 ; Escape = ref true ; Typ = $5 ; Pos = parseState.InputStartPosition 2 } :: $1 }
