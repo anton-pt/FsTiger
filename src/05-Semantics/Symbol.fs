@@ -19,6 +19,8 @@ let name (Symbol (n, _)) = n
 
 type Table<'a> = private Table of Map<Symbol, 'a>
 
-let empty = Table (Map.empty)
-let enter (Table tbl) s x = Table (tbl |> Map.add s x)
-let look (Table tbl) s = tbl |> Map.tryFind s
+[<RequireQualifiedAccess>]
+module Table = 
+    let empty = Table (Map.empty)
+    let enter (Table tbl) s x = Table (tbl |> Map.add s x)
+    let look (Table tbl) s = tbl |> Map.tryFind s

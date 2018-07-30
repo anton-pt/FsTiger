@@ -50,6 +50,9 @@
       <OtherFlags>--unicode</OtherFlags>
     </FsLex>
     <Compile Include="Lexer.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Env.fs" />
+    <Compile Include="Semant.fs" />
     <None Include="Demo.fsx" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.Portable.FSharp.Targets" />
