@@ -11,6 +11,8 @@ Directory.GetFiles "../../testcases/"
     printfn "PARSING: %s" path
     use sr = File.OpenText path 
     let buf = LexBuffer<_>.FromTextReader sr
-    let ast = start Lexer.token buf
-    printfn "%A" ast
-    printfn "\n\n\n\n")
+    let prog = start Lexer.token buf
+    try
+        Semant.transProg prog |> printfn "SUCCESS: %A\n\n\n"
+    with
+    | exn -> printfn "ERROR: %s\n\n\n" exn.Message)

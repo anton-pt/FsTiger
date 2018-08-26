@@ -15,7 +15,9 @@ type ExpTy =
       Type : Type }
 
 let baseVEnv = Table.empty
-let baseTEnv = Table.empty
+let baseTEnv = 
+    let tbl = Table.enter Table.empty (Symbol.symbol "int") Int
+    Table.enter tbl (Symbol.symbol "string") String
 
 let private error pos msg =
     failwith msg
@@ -24,19 +26,40 @@ let private checkInt expTy pos =
     if expTy.Type <> Int then
         error pos "Integer required"
 
-let private actualTy ty = ty
+let rec private actualTy ty =
+    match ty with
+    | Name (_, actual) -> actualTy (Option.get !actual)
+    | _ -> ty
 
 let rec transVar (venv: VEnv) (tenv: TEnv) (var: Var) : ExpTy =
     let trVar = transVar venv tenv
-
     match var with
     | SimpleVar(id, pos) ->
         match Table.look venv id with
         | Some (VarEntry(ty)) -> { Exp = () ; Type = actualTy ty }
         | Some (FunEntry(_, _)) -> error pos "Expected value but found function"
         | None -> error pos (sprintf "Undefined variable %s" (name id))
-    | _ ->
-        raise (NotImplementedException())
+    | FieldVar(var, id, pos) ->
+        let { Exp = () ; Type = varTy } = trVar var
+        match varTy with
+        | Record(fields, _) ->
+            let fieldTy =
+                fields |> List.tryPick (fun (fieldId, fieldTy) -> 
+                    if id = fieldId then Some fieldTy else None)
+            match fieldTy with
+            | Some fieldTy -> { Exp = () ; Type = actualTy fieldTy }
+            | None -> error pos (sprintf "Type does not contain field %s" (name id))
+        | _ -> error pos "Cannot access member field of type which is not a record type"
+    | SubscriptVar(var, exp, pos) ->
+        let { Exp = () ; Type = varTy } = trVar var
+        match varTy with
+        | Array(elemTy, _) ->
+            let { Exp = () ; Type = expTy } = transExp venv tenv exp
+            if expTy = Int
+            then { Exp = () ; Type = actualTy elemTy }
+            else error pos "Cannot use non-integer expression as array index"
+        | _ ->
+            error pos "Cannot subscript type which is not an array type"
 
 and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
     let trExp = transExp venv tenv
@@ -58,7 +81,7 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
                 |> List.iteri (fun i (reqType, arg) -> 
                     let argType = (transExp venv tenv arg).Type
                     if not (argType |> Type.equals reqType) then
-                        error pos (sprintf "Argument %d does not have the correct type" i))
+                        error pos (sprintf "Function argument %d does not have the correct type" i))
                 { Exp = () ; Type = result }
     | OpExp(left, oper, right, pos) when oper = EqOp || oper = NeqOp ->
         match ((trExp left).Type, (trExp right).Type) with
@@ -71,13 +94,80 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
         checkInt (trExp left) pos
         checkInt (trExp right) pos
         { Exp = () ; Type = Int }
+    | RecordExp(fields, typ, pos) ->
+        match Table.look tenv typ with
+        | None -> error pos "Unknown type"
+        | Some ty ->
+            let actual = actualTy ty
+            match actual with
+            | Record(reqFields, _) ->
+                let fields' = fields |> List.map (fun (s, exp, pos) -> (s, (exp, pos))) |> Map.ofList
+                let reqFields' = Map.ofList reqFields
+                if (fields' |> Seq.map (fun kvp -> kvp.Key) |> Set.ofSeq)
+                        <> (reqFields' |> Seq.map (fun kvp -> kvp.Key) |> Set.ofSeq)
+                then error pos "Record fields do not match those of the type"
+                else { Exp = () ; Type = actual }
+            | _ -> error pos "Record type expected"
+    | SeqExp exps ->
+        let exps' = exps |> List.map (fst >> transExp venv tenv)
+        if List.isEmpty exps'
+        then { Exp = () ; Type = Unit }
+        else { Exp = () ; Type = (List.last exps').Type }
+    | AssignExp (var, exp, pos) ->
+        let { Exp = () ; Type = varType } = transVar venv tenv var
+        let { Exp = () ; Type = expType } = transExp venv tenv exp
+        if varType = expType
+        then { Exp = () ; Type = Unit }
+        else error pos "Type mismatch in assignment expression"
+    | IfExp (testExp, thenExp, elseExp, pos) ->
+        let { Exp = () ; Type = testType } = transExp venv tenv testExp
+        if testType <> Int
+        then error pos "Integer expression expected in condition"
+        else let { Exp = () ; Type = thenType } = transExp venv tenv thenExp
+             match elseExp with
+             | Some elseExp ->
+                 let { Exp = () ; Type = elseType } = transExp venv tenv elseExp
+                 if thenType <> elseType
+                 then error pos "If expression branches must have the same type"
+                 else { Exp = () ; Type = thenType }
+             | None ->
+                 if thenType <> Unit
+                 then error pos "Else branch required if the then branch has a non-unit type"
+                 else { Exp = () ; Type = Unit }
+    | WhileExp (testExp, body, pos) ->
+        let { Exp = () ; Type = testType } = transExp venv tenv testExp
+        if testType <> Int
+        then error pos "Integer expression expected in condition"
+        else let { Exp = () ; Type = bodyType } = transExp venv tenv body
+             if bodyType <> Unit
+             then error pos "Unit expression expected in body"
+             else { Exp = () ; Type = Unit }
+    | ForExp (var, escape, lo, hi, body, pos) ->
+        let { Exp = () ; Type = loType } = transExp venv tenv lo
+        let { Exp = () ; Type = hiType } = transExp venv tenv hi
+        if loType <> Int || hiType <> Int
+        then error pos "Integer expression expected in for loop bound"
+        else let venv' = Table.enter venv var (VarEntry(Int))
+             let { Exp = () ; Type = bodyType } = transExp venv' tenv body
+             if bodyType <> Unit
+             then error pos "Unit expression expected in body"
+             else { Exp = () ; Type = Unit }
+    | BreakExp pos -> { Exp = () ; Type = Unit }
     | LetExp (decs, body, pos) ->
         let (venv', tenv') = 
             decs |> List.fold 
                 (fun (venv, tenv) dec -> transDec venv tenv dec)
                 (venv, tenv)
         transExp venv' tenv' body
-    | _ -> raise (NotImplementedException())
+    | ArrayExp (typ, size, init, pos) ->
+        match Table.look tenv typ |> Option.map actualTy with
+        | Some ((Array (elType, guid)) as arrayType) ->
+            let { Exp = () ; Type = initType } = transExp venv tenv init
+            if actualTy elType <> initType
+            then error pos "Initialiser type must match element type"
+            else { Exp = () ; Type = arrayType }
+        | Some _ -> error pos "Array type expected"
+        | None -> error pos "Unknown type"
 
 and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
     match dec with
@@ -95,22 +185,74 @@ and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
         | None -> error pos "Unknown type"
         | Some ty when not (Type.isRecord ty) && initType = Nil ->
             error pos "Nil is not a valid value of the given type"
-        | Some ty when not (ty |> Type.equals initType) && initType <> Nil ->
+        | Some ty when not (actualTy ty |> Type.equals initType) && initType <> Nil ->
             error pos "Expression does not match type declaration"
         | _ ->
             let entry = VarEntry initType
             (Table.enter venv id entry, tenv)
-    | TypeDec({ TypeName = id ; Ty = ty ; Pos = pos }::decs) ->
-        let ty' = transTy tenv ty
-        let tenv' = Table.enter tenv id ty'
-        transDec venv tenv' (TypeDec(decs))
-    | TypeDec([]) ->
-        (venv, tenv)
-    | _ ->
-        raise (NotImplementedException())
+    | TypeDec decs ->
+        let (tenv', tys) =
+            decs 
+            |> List.fold (fun (env, tys) dec -> 
+                    let ty = ref None in (Table.enter env dec.TypeName (Name (dec.TypeName, ty)), ty::tys))
+                (tenv, List.empty)
+        let tenv'' =
+            decs
+            |> List.map (fun dec -> (dec.TypeName, transTy tenv' dec.Ty))
+            |> List.zip (List.rev tys)
+            |> List.fold (fun env (ty', (name, ty)) -> 
+                ty' := Some ty
+                Table.enter env name ty) tenv'
+        (venv, tenv'')
+    | FunDec decs ->
+        let (venv', funData) =
+            decs
+            |> List.fold (fun (env, funData) dec ->
+                let parameters = 
+                    dec.Params
+                    |> List.fold (fun parameters param -> 
+                            match Table.look tenv param.Typ with
+                            | Some paramType -> (param.FieldName, paramType)::parameters
+                            | None -> error param.Pos "Unknown parameter type")
+                        List.empty
+                let resultType =
+                    match dec.Result with
+                    | Some (resultTyp, pos) ->
+                        match Table.look tenv resultTyp with
+                        | Some resultType -> resultType
+                        | None -> error pos "Unknown result type"
+                    | None -> Unit
+                let entry = FunEntry(List.rev parameters |> List.map snd, resultType)
+                (Table.enter env dec.FunName entry, (parameters, resultType)::funData)) 
+                (venv, List.empty)
+        decs
+        |> List.zip (List.rev funData)
+        |> List.iter (fun ((parameters, resultType), dec) ->
+            let funEnv = parameters |> List.fold (fun env (name, paramType) -> Table.enter env name (VarEntry paramType)) venv'
+            let { Exp = () ; Type = bodyType } = transExp funEnv tenv dec.Body
+            if bodyType <> resultType
+            then error dec.Pos "Function body return type does not match declared result type")
+        (venv', tenv)
 
 and transTy (tenv: TEnv) (ty: Ty) : Type =
-    raise (NotImplementedException())
+    match ty with
+    | NameTy (actualTy, pos) ->
+        match Table.look tenv actualTy with
+        | Some actual -> actual
+        | None -> error pos "Cannot alias unknown type"
+    | RecordTy fields ->
+        let fieldTypes =
+            fields
+            |> List.map (fun field ->
+                match Table.look tenv field.Typ with
+                | Some fieldType -> (field.FieldName, fieldType)
+                | None -> error field.Pos "Unknown field type")
+        Record (fieldTypes, Guid.NewGuid())
+    | ArrayTy (elTyp, pos) ->
+        match Table.look tenv elTyp with
+        | Some elType -> Array(elType, Guid.NewGuid())
+        | None -> error pos "Unknown element type"
 
-
-let transProg (prog: Exp) = ()
+let transProg (prog: Exp) =
+    transExp baseVEnv baseTEnv prog
+    

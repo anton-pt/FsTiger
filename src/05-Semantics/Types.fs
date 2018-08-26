@@ -3,7 +3,6 @@
 open System
 open Symbol
 
-
 type Type =
     | Int
     | String
