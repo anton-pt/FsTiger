@@ -219,6 +219,29 @@ and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
         match nameCollision with
         | Some dec -> error dec.Pos "Repeated type name in same batch of declarations"
         | None -> ()
+        let nameCycle =
+            let decs' = Array.ofList decs
+            let visited = Array.zeroCreate decs'.Length 
+            let recStack = Array.zeroCreate decs'.Length
+            let rec findCycle n =
+                if recStack.[n] then
+                    (Some decs'.[n])
+                else if visited.[n] then
+                    None
+                else 
+                    visited.[n] <- true
+                    recStack.[n] <- true
+                    let child =
+                        match decs'.[n].Ty with
+                        | NameTy (actual, _) -> decs' |> Array.tryFindIndex (fun dec -> dec.TypeName = actual)
+                        | _ -> None
+                    match child |> Option.bind findCycle with
+                    | Some cycle -> Some cycle
+                    | _ -> recStack.[n] <- false ; None
+            seq { 0 .. decs'.Length - 1 } |> Seq.tryPick (fun n -> findCycle n)
+        match nameCycle with
+        | Some dec -> error dec.Pos "Type definition contains illegal cycle"
+        | None -> ()
         let (tenv', tys) =
             decs 
             |> List.fold (fun (env, tys) dec -> 
