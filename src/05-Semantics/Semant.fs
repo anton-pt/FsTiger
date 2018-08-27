@@ -14,10 +14,23 @@ type ExpTy =
     { Exp : unit // placeholder
       Type : Type }
 
-let baseVEnv = Table.empty
-let baseTEnv = 
-    let tbl = Table.enter Table.empty (Symbol.symbol "int") Int
-    Table.enter tbl (Symbol.symbol "string") String
+let baseVEnv =
+    [ (Symbol.symbol "print", FunEntry([String], Unit))
+      (Symbol.symbol "flush", FunEntry([], Unit))
+      (Symbol.symbol "getchar", FunEntry([], String))
+      (Symbol.symbol "ord", FunEntry([String], Int))
+      (Symbol.symbol "chr", FunEntry([Int], String))
+      (Symbol.symbol "size", FunEntry([String], Int))
+      (Symbol.symbol "substring", FunEntry([String ; Int ; Int], String))
+      (Symbol.symbol "concat", FunEntry([String ; String], String))
+      (Symbol.symbol "not", FunEntry([Int], Int))
+      (Symbol.symbol "exit", FunEntry([Int], Unit)) ]
+    |> List.fold (fun env (symbol, entry) -> Table.enter env symbol entry) Table.empty
+
+let baseTEnv =
+    [ (Symbol.symbol "int", Int)
+      (Symbol.symbol "string", String) ]
+    |> List.fold (fun env (symbol, entry) -> Table.enter env symbol entry) Table.empty
 
 let private error pos msg =
     failwith msg
@@ -86,7 +99,10 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
     | OpExp(left, oper, right, pos) when oper = EqOp || oper = NeqOp ->
         match ((trExp left).Type, (trExp right).Type) with
         | (Int, Int) -> ()
+        | (String, String) -> ()
         | (Record (_, lid), Record (_, rid)) when lid = rid -> ()
+        | (Record _, Nil) -> ()
+        | (Nil, Record _) -> ()
         | (Array (_, lid), Array (_, rid)) when lid = rid -> ()
         | _ -> error pos "Attempted equality comparison of mismatching types"
         { Exp = () ; Type = Int }
@@ -119,7 +135,7 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
         if varType = expType
         then { Exp = () ; Type = Unit }
         else error pos "Type mismatch in assignment expression"
-    | IfExp (testExp, thenExp, elseExp, pos) ->
+    | IfExp (testExp, thenExp, elseExp, pos) as exp ->
         let { Exp = () ; Type = testType } = transExp venv tenv testExp
         if testType <> Int
         then error pos "Integer expression expected in condition"
@@ -127,9 +143,12 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
              match elseExp with
              | Some elseExp ->
                  let { Exp = () ; Type = elseType } = transExp venv tenv elseExp
-                 if thenType <> elseType
-                 then error pos "If expression branches must have the same type"
-                 else { Exp = () ; Type = thenType }
+                 match (thenType, elseType) with
+                 | (thenType, elseType) when Type.equals thenType elseType -> { Exp = () ; Type = thenType }
+                 | (thenType, Nil) when thenType <> Nil -> { Exp = () ; Type = thenType }
+                 | (Nil, elseType) when elseType <> Nil -> { Exp = () ; Type = elseType }
+                 | (Nil, Nil) -> error pos "Both if expression branches are of nil type"
+                 | _ -> error pos "If expression branches must have the same type"
              | None ->
                  if thenType <> Unit
                  then error pos "Else branch required if the then branch has a non-unit type"
@@ -230,7 +249,7 @@ and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
         |> List.iter (fun ((parameters, resultType), dec) ->
             let funEnv = parameters |> List.fold (fun env (name, paramType) -> Table.enter env name (VarEntry paramType)) venv'
             let { Exp = () ; Type = bodyType } = transExp funEnv tenv dec.Body
-            if bodyType <> resultType
+            if not (Type.equals bodyType resultType)
             then error dec.Pos "Function body return type does not match declared result type")
         (venv', tenv)
 

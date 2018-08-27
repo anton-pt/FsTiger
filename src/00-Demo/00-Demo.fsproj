@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\05-Semantics\05-Semantics.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FsLexYacc.Runtime" Version="7.0.6" />
+  </ItemGroup>
+</Project>

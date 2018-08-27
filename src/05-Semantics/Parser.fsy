@@ -61,8 +61,8 @@ Exp: Var { VarExp($1) }
    | STRING_LIT { StringExp($1, parseState.InputStartPosition 1) }
    | ID LPAREN ExpList RPAREN { CallExp(symbol $1, List.rev($3), parseState.InputStartPosition 1) }
    | Exp Oper Exp %prec PLUS { OpExp($1, $2, $3, parseState.InputStartPosition 2) }
-   | Exp AND Exp %prec PLUS { IfExp($1, $3, Some (IntExp(0)), parseState.InputStartPosition 2) }
-   | Exp OR Exp %prec PLUS { IfExp($1, IntExp(1), Some $3, parseState.InputStartPosition 2) }
+   | Exp AND Exp { IfExp($1, $3, Some (IntExp(0)), parseState.InputStartPosition 2) }
+   | Exp OR Exp { IfExp($1, IntExp(1), Some $3, parseState.InputStartPosition 2) }
    | MINUS Exp %prec TIMES { OpExp(IntExp(0), MinusOp, $2, parseState.InputStartPosition 1) }
    | ID LBRACE RecordFieldList RBRACE { RecordExp(List.rev($3), symbol $1, parseState.InputStartPosition 1) }
    | ID NIL { RecordExp([], symbol $1, parseState.InputStartPosition 1) }
