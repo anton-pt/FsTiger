@@ -35,10 +35,6 @@ let baseTEnv =
 let private error pos msg =
     failwith msg
 
-let private checkInt expTy pos =
-    if expTy.Type <> Int then
-        error pos "Integer required"
-
 let rec private actualTy ty =
     match ty with
     | Name (_, actual) -> actualTy (Option.get !actual)
@@ -67,16 +63,13 @@ let rec transVar (venv: VEnv) (tenv: TEnv) (var: Var) : ExpTy =
         let { Exp = () ; Type = varTy } = trVar var
         match varTy with
         | Array(elemTy, _) ->
-            let { Exp = () ; Type = expTy } = transExp venv tenv exp
+            let { Exp = () ; Type = expTy } = transExp false venv tenv exp
             if expTy = Int
             then { Exp = () ; Type = actualTy elemTy }
             else error pos "Cannot use non-integer expression as array index"
-        | _ ->
-            error pos "Cannot subscript type which is not an array type"
+        | _ -> error pos "Cannot subscript type which is not an array type"
 
-and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
-    let trExp = transExp venv tenv
-
+and transExp allowBreak (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
     match exp with
     | VarExp var -> transVar venv tenv var
     | NilExp -> { Exp = () ; Type = Nil }
@@ -92,12 +85,12 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
             else
                 List.zip formals args
                 |> List.iteri (fun i (reqType, arg) -> 
-                    let argType = (transExp venv tenv arg).Type
+                    let argType = (transExp false venv tenv arg).Type
                     if not (argType |> Type.equals reqType) then
                         error pos (sprintf "Function argument %d does not have the correct type" i))
                 { Exp = () ; Type = result }
     | OpExp(left, oper, right, pos) when oper = EqOp || oper = NeqOp ->
-        match ((trExp left).Type, (trExp right).Type) with
+        match ((transExp false venv tenv left).Type, (transExp false venv tenv right).Type) with
         | (Int, Int) -> ()
         | (String, String) -> ()
         | (Record (_, lid), Record (_, rid)) when lid = rid -> ()
@@ -107,8 +100,10 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
         | _ -> error pos "Attempted equality comparison of mismatching types"
         { Exp = () ; Type = Int }
     | OpExp(left, oper, right, pos) ->
-        checkInt (trExp left) pos
-        checkInt (trExp right) pos
+        let lType = (transExp false venv tenv left).Type
+        let rType = (transExp false venv tenv right).Type
+        if lType <> Int || rType <> Int then
+            failwithf "Integer expected in operator expression"
         { Exp = () ; Type = Int }
     | RecordExp(fields, typ, pos) ->
         match Table.look tenv typ with
@@ -125,24 +120,25 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
                 else { Exp = () ; Type = actual }
             | _ -> error pos "Record type expected"
     | SeqExp exps ->
-        let exps' = exps |> List.map (fst >> transExp venv tenv)
+        let len = List.length exps
+        let exps' = exps |> List.mapi (fun i exp -> fst exp |> transExp (i = len - 1) venv tenv)
         if List.isEmpty exps'
         then { Exp = () ; Type = Unit }
         else { Exp = () ; Type = (List.last exps').Type }
     | AssignExp (var, exp, pos) ->
         let { Exp = () ; Type = varType } = transVar venv tenv var
-        let { Exp = () ; Type = expType } = transExp venv tenv exp
+        let { Exp = () ; Type = expType } = transExp false venv tenv exp
         if varType = expType
         then { Exp = () ; Type = Unit }
         else error pos "Type mismatch in assignment expression"
     | IfExp (testExp, thenExp, elseExp, pos) as exp ->
-        let { Exp = () ; Type = testType } = transExp venv tenv testExp
+        let { Exp = () ; Type = testType } = transExp false venv tenv testExp
         if testType <> Int
         then error pos "Integer expression expected in condition"
-        else let { Exp = () ; Type = thenType } = transExp venv tenv thenExp
+        else let { Exp = () ; Type = thenType } = transExp allowBreak venv tenv thenExp
              match elseExp with
              | Some elseExp ->
-                 let { Exp = () ; Type = elseType } = transExp venv tenv elseExp
+                 let { Exp = () ; Type = elseType } = transExp allowBreak venv tenv elseExp
                  match (thenType, elseType) with
                  | (thenType, elseType) when Type.equals thenType elseType -> { Exp = () ; Type = thenType }
                  | (thenType, Nil) when thenType <> Nil -> { Exp = () ; Type = thenType }
@@ -154,34 +150,37 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
                  then error pos "Else branch required if the then branch has a non-unit type"
                  else { Exp = () ; Type = Unit }
     | WhileExp (testExp, body, pos) ->
-        let { Exp = () ; Type = testType } = transExp venv tenv testExp
+        let { Exp = () ; Type = testType } = transExp false venv tenv testExp
         if testType <> Int
         then error pos "Integer expression expected in condition"
-        else let { Exp = () ; Type = bodyType } = transExp venv tenv body
+        else let { Exp = () ; Type = bodyType } = transExp true venv tenv body
              if bodyType <> Unit
              then error pos "Unit expression expected in body"
              else { Exp = () ; Type = Unit }
     | ForExp (var, escape, lo, hi, body, pos) ->
-        let { Exp = () ; Type = loType } = transExp venv tenv lo
-        let { Exp = () ; Type = hiType } = transExp venv tenv hi
+        let { Exp = () ; Type = loType } = transExp false venv tenv lo
+        let { Exp = () ; Type = hiType } = transExp false venv tenv hi
         if loType <> Int || hiType <> Int
         then error pos "Integer expression expected in for loop bound"
         else let venv' = Table.enter venv var (VarEntry(Int))
-             let { Exp = () ; Type = bodyType } = transExp venv' tenv body
+             let { Exp = () ; Type = bodyType } = transExp true venv' tenv body
              if bodyType <> Unit
              then error pos "Unit expression expected in body"
              else { Exp = () ; Type = Unit }
-    | BreakExp pos -> { Exp = () ; Type = Unit }
+    | BreakExp pos -> 
+        if allowBreak
+        then { Exp = () ; Type = Unit }
+        else error pos "Unexpected keyword break"
     | LetExp (decs, body, pos) ->
         let (venv', tenv') = 
             decs |> List.fold 
                 (fun (venv, tenv) dec -> transDec venv tenv dec)
                 (venv, tenv)
-        transExp venv' tenv' body
+        transExp allowBreak venv' tenv' body
     | ArrayExp (typ, size, init, pos) ->
         match Table.look tenv typ |> Option.map actualTy with
         | Some ((Array (elType, guid)) as arrayType) ->
-            let { Exp = () ; Type = initType } = transExp venv tenv init
+            let { Exp = () ; Type = initType } = transExp false venv tenv init
             if actualTy elType <> initType
             then error pos "Initialiser type must match element type"
             else { Exp = () ; Type = arrayType }
@@ -191,14 +190,14 @@ and transExp (venv: VEnv) (tenv: TEnv) (exp: Exp) : ExpTy =
 and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
     match dec with
     | VarDec(id, _, None, init, pos) ->
-        let initType = (transExp venv tenv init).Type
+        let initType = (transExp false venv tenv init).Type
         if initType = Nil then
             error pos "Must specify type when initializing nil value"
         else 
             let entry = VarEntry initType
             (Table.enter venv id entry, tenv)
     | VarDec(id, _, Some (decTypeId, pos), init, _) ->
-        let initType = (transExp venv tenv init).Type
+        let initType = (transExp false venv tenv init).Type
         let decType = Table.look tenv decTypeId
         match decType with
         | None -> error pos "Unknown type"
@@ -206,10 +205,20 @@ and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
             error pos "Nil is not a valid value of the given type"
         | Some ty when not (actualTy ty |> Type.equals initType) && initType <> Nil ->
             error pos "Expression does not match type declaration"
-        | _ ->
-            let entry = VarEntry initType
+        | Some decType ->
+            let entry = VarEntry decType
             (Table.enter venv id entry, tenv)
     | TypeDec decs ->
+        let nameCollision =
+            decs
+            |> List.groupBy (fun dec -> dec.TypeName)
+            |> List.tryPick (fun (name, decsByName) ->
+                if List.length decsByName > 1
+                then Some (List.last decsByName)
+                else None)
+        match nameCollision with
+        | Some dec -> error dec.Pos "Repeated type name in same batch of declarations"
+        | None -> ()
         let (tenv', tys) =
             decs 
             |> List.fold (fun (env, tys) dec -> 
@@ -224,6 +233,16 @@ and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
                 Table.enter env name ty) tenv'
         (venv, tenv'')
     | FunDec decs ->
+        let nameCollision =
+            decs
+            |> List.groupBy (fun dec -> dec.FunName)
+            |> List.tryPick (fun (name, decsByName) ->
+                if List.length decsByName > 1
+                then Some (List.last decsByName)
+                else None)
+        match nameCollision with
+        | Some dec -> error dec.Pos "Repeated function name in same batch of declarations"
+        | None -> ()
         let (venv', funData) =
             decs
             |> List.fold (fun (env, funData) dec ->
@@ -248,7 +267,7 @@ and transDec (venv: VEnv) (tenv: TEnv) (dec: Dec) : (VEnv * TEnv) =
         |> List.zip (List.rev funData)
         |> List.iter (fun ((parameters, resultType), dec) ->
             let funEnv = parameters |> List.fold (fun env (name, paramType) -> Table.enter env name (VarEntry paramType)) venv'
-            let { Exp = () ; Type = bodyType } = transExp funEnv tenv dec.Body
+            let { Exp = () ; Type = bodyType } = transExp false funEnv tenv dec.Body
             if not (Type.equals bodyType resultType)
             then error dec.Pos "Function body return type does not match declared result type")
         (venv', tenv)
@@ -273,5 +292,5 @@ and transTy (tenv: TEnv) (ty: Ty) : Type =
         | None -> error pos "Unknown element type"
 
 let transProg (prog: Exp) =
-    transExp baseVEnv baseTEnv prog
+    transExp false baseVEnv baseTEnv prog
     
